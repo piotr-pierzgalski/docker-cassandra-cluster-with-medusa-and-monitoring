@@ -42,14 +42,9 @@ COPY key_authorization/id_rsa.pub /home/root/.ssh/
 RUN mkdir -p /.ssh
 COPY key_authorization/id_rsa /root/.ssh/
 COPY key_authorization/id_rsa.pub /root/.ssh/
+RUN chmod 400 /root/.ssh/id_rsa
 RUN service ssh restart && sshpass -p 123 ssh-copy-id -i /home/root/.ssh/id_rsa -o StrictHostKeyChecking=no root@localhost
 #### </Install and configure openssh-server with direct, key-based root access (DO NOT DO THIS ON ANY PRODUCTION ENVIRONMENT)> ####
-
-
-#### <Just some additional fun stuff for testing> ####
-COPY scripts/dragonrat /home/root/
-RUN echo "cat dragonrat" >> /home/root/.bashrc
-#### </Just some additional fun stuff for testing> ####
 
 
 #### <Install runtime configuration script> ####
@@ -60,33 +55,31 @@ RUN echo "##### <custom script injection> #####" >> /concat_scripts && cat /star
 #### </Install runtime configuration script> ####
 
 
-#### <Install and configure graphite reporting> ####
-#RUN apt install -y default-jre
+#### <Install and configure jmx prometheus reporting for grafana> ####
+RUN apt-get install -y wget git
+RUN wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
+RUN tar -C /usr/local -xzf go1.13.linux-amd64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
 
-ARG GraphiteNodeName
-ARG GraphiteNodeColor
+RUN go get github.com/prometheus/node_exporter
+RUN cd ${GOPATH-$HOME/go}/src/github.com/prometheus/node_exporter && make && ./node_exporter -h
 
-#RUN apt install -y default-jdk
-#RUN export JAVA_HOME=/opt/bitnami/java/bin/java
-#RUN export PATH=$PATH:/opt/bitnami/java/bin
-#RUN export PATH=$PATH:/opt/bitnami/cassandra/bin
+COPY prometheus/jmx_prometheus_javaagent-0.3.0.jar .
+#COPY prometheus/jmx_prometheus_javaagent-0.12.0.jar .
+COPY prometheus/cassandra.yml .
+#COPY prometheus/cassandra2.yml .
+COPY prometheus/cassandra-env.sh /bitnami/cassandra/conf/
 
-COPY graphite/graphite.yaml /bitnami/cassandra/conf/
-RUN sed -i "s/<node_name_for_substitution>/$GraphiteNodeName/" /bitnami/cassandra/conf/graphite.yaml
-RUN sed -i "s/<color_name_for_substitution>/$GraphiteNodeColor/" /bitnami/cassandra/conf/graphite.yaml
-COPY graphite/cassandra-env.sh /bitnami/cassandra/conf/
-COPY graphite/metrics-graphite-3.1.0.jar /opt/bitnami/cassandra/lib/
-COPY scripts/customsetupscript.sh /docker-entrypoint-initdb.d
+RUN echo "export PATH=$PATH:/opt/bitnami/java/bin" >> /root/.bashrc
+RUN echo "export PATH=$PATH:/opt/bitnami/cassandra/bin" >> /root/.bashrc
+RUN echo "export JAVA_HOME=/opt/bitnami/cassandra/bin/java" >> /root/.bashrc
 
-#COPY graphite/graphite.yaml /opt/bitnami/cassandra/conf/
-#RUN sed -i "s/<node_name_for_substitution>/$GraphiteNodeName/" /opt/bitnami/cassandra/conf/graphite.yaml
-#RUN sed -i "s/<color_name_for_substitution>/$GraphiteNodeColor/" /opt/bitnami/cassandra/conf/graphite.yaml
-#COPY graphite/metrics-graphite-3.1.0.jar /opt/bitnami/cassandra/lib/
-#RUN echo "JVM_OPTS=\"\$JVM_OPTS -Dcassandra.metricsReporterConfigFile=graphite.yaml\"" >> /opt/bitnami/cassandra/conf/cassandra-env.sh
+#RUN env | grep _ >> /etc/environment
+#### </Install and configure jmx prometheus reporting for grafana> ####
 
-#COPY graphite/graphite.yaml .
-#RUN sed -i "s/<node_name_for_substitution>/$GraphiteNodeName/" /graphite.yaml
-#RUN sed -i "s/<color_name_for_substitution>/$GraphiteNodeColor/" /graphite.yaml
-#RUN cat /graphite.yaml
-#COPY graphite/metrics-graphite-3.1.0.jar /opt/bitnami/cassandra/lib/
-#### </Install and configure graphite reporting> ####
+
+#### <Just some additional fun stuff for testing> ####
+COPY scripts/dragonrat /etc
+RUN cat /etc/dragonrat >> /etc/motd
+#RUN echo "cat dragonrat" >> /root/.bashrc
+#### </Just some additional fun stuff for testing> ####
