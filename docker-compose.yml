@@ -1,0 +1,124 @@
+version: "3.7"
+services:
+  cassandra1:
+    build: 
+      context: ./cassandra-containerized
+      dockerfile: Dockerfile
+      args:
+        GraphiteNodeName: cassandra1
+        GraphiteNodeColor: green
+    container_name: cassandra1
+    ports:
+      - "9042:9042"
+      - "8881:22"
+    depends_on:
+      - graphite
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
+    volumes:
+      - "cassandra1volume:/bitnami"
+    environment:
+      - CASSANDRA_HOST=172.171.170.2
+      - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
+      - CASSANDRA_SEEDS=cassandra1,cassandra2
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_ENABLE_RPC=false
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.2
+    depends_on:
+      - grafana
+
+  cassandra2:
+    build: 
+      context: ./cassandra-containerized
+      dockerfile: Dockerfile
+      args:
+        GraphiteNodeName: cassandra2
+        GraphiteNodeColor: blue
+    container_name: cassandra2
+    ports:
+      - "9043:9042"
+      - "8882:22"
+    depends_on:
+      - graphite
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
+    volumes:
+      - "cassandra2volume:/bitnami"
+    environment:
+      - CASSANDRA_HOST=172.171.170.3
+      - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
+      - CASSANDRA_SEEDS=cassandra1,cassandra2
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_ENABLE_RPC=false
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.3
+    depends_on:
+      - grafana
+
+  cassandra3:
+    build: 
+      context: ./cassandra-containerized
+      dockerfile: Dockerfile
+      args:
+        GraphiteNodeName: cassandra3
+        GraphiteNodeColor: purple
+    container_name: cassandra3
+    ports:
+      - "9044:9042"
+      - "8883:22"
+    depends_on:
+      - graphite
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
+    volumes:
+      - "cassandra3volume:/bitnami"
+    environment:
+      - CASSANDRA_HOST=172.171.170.4
+      - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
+      - CASSANDRA_SEEDS=cassandra1,cassandra2
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_ENABLE_RPC=false
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.4
+    depends_on:
+      - grafana
+
+  graphite:
+#   image: sitespeedio/graphite:0.9.14
+    image: sitespeedio/graphite:latest
+    container_name: graphite
+    ports:
+      - "2003:2003"
+      - "8884:80"
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - graphite
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.6
+
+volumes:
+  cassandra1volume:
+  cassandra2volume:
+  cassandra3volume:
+  graphitevolume:
+  grafanavolume:
+
+networks:
+  static-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.171.170.0/24"

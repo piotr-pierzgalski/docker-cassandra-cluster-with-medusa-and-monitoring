@@ -1,0 +1,37 @@
+1: Konfigurujemy dostêp po ssh za pomoc¹ klucza do ka¿dego z serwerów w klastrze (nie ka¿dy serwer musi posiadaæ klucz do logowania. Mo¿na go wygenerowaæ tylko na jednym serwerze i u¿ywaæ go zawsze do restore - ale ka¿dy serwer musi przyjmowaæ logowanie tym kluczem.
+Wykonujemy instrukcjê:
+ssh-keygen
+Potwierdzamy domyœln¹ lokalizacjê i pusty passphrase (niezbyt bezpieczne, ale nie sprawdza³em jak ogarn¹æ w meduzie logowanie z passphrase, ani czy w ogóle siê da).
+Nastêpnie narzêdziem ssh-copy-id autoryzujemy klucz na naszym lokalnym serwerze (tak, te¿ trzeba!) oraz na pozosta³ych serwerach w klastrze.
+ssh-copy-id username@server1
+ssh-copy-id username@server2
+ssh-copy-id username@server3
+
+2.1: Na ka¿dym serwerze w klastrze wykonujemy poni¿sze instrukcje. Uwaga - testowa³em je na dystrybucji debian9 (stretch), na innych dystrybucjach mog¹ byæ konieczne inne instrukcje. W skrócie - trzeba zainstalowaæ python3, google cloud sdk oraz narzêdzie "medusa" ze wskazaniem google cloud jako wykorzystywanego przez storage (do tego s³u¿y opcja "[GCS]"), a nastêpnie stworzyæ dla medusy katalog do trzymania ró¿nych konfiguracyjnych rzeczy "/etc/medusa", jeœli takowy jeszcze nie istnieje.
+
+sudo apt-get update && sudo apt-get install -y python3-pip libffi-dev libssl-dev python3-dev
+
+# Add the Cloud SDK distribution URI as a package source
+sudo echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+
+# Import the Google Cloud Platform public key
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+
+# Update the package list and install the Cloud SDK - zdarzy³o mi siê, ¿e ta instrukcja wyplu³a b³¹d, ale jej ponowienie wystarczy³o.
+sudo apt-get update && sudo apt-get install -y google-cloud-sdk
+
+sudo pip3 install cassandra-medusa[GCS]
+
+sudo mkdir -p /etc/medusa
+
+2.2: W katalogu "/etc/medusa" umieszczamy pliki "credentials.json" (dostêp do service account w GCS, mo¿na to wygenerowaæ w chmurze google) oraz "medusa.ini". Medusa potrzebuje te¿ pliku "cassandra.yaml". Na cassandrze z dystrybucji Apache wystarczy³o wskazaæ œcie¿kê do pliku cassandra.yaml, jednak w dystrybucji Bitnami to nie zadzia³a³o (medusa mia³a problem z dostaniem siê do katalogów z danymi cassandry po domyœlnych œcie¿kach). ¯eby nie grzebaæ w samej cassandrze, rozwi¹za³em to kopiuj¹c "cassandra.yaml" do "/etc/medusa" i wskazuj¹c go jako œcie¿kê - a w samym pliku jawnie wprowadzi³em niezbêdne œcie¿ki do katalogów cassandry na dysku.
+Jeœli z jakiegoœ powodu zmienialiœmy lokalizacjê klucza ssh, to w pliku medusa.ini trzeba w opcji "key_file" wskazaæ poprawn¹ œcie¿kê do pliku. Jeœli u¿yliœmy deafultowej œcie¿ki, nie powinniœmy musieæ nic zmieniaæ.
+
+2.3: Jeœli pracujemy na serwerze, który jako domyœlnego adresu u¿ywa IP, którego nie jesteœmy w stanie automatycznie przet³umaczyæ na hostname, trzeba dodaæ mapowania do plików hosts. Problem wystêpuje przyk³adowo na wirtualnych maszynach Azure (wewnêtrznie widz¹ siê po prywatnych adresach), za to np. na Dockerze nie jest to potrzebne (Docker posiada wewnêtrzny serwer DNS).
+Jeœli zatem jest to konieczne, to do pliku "/etc/hosts" wpisujemy mapowania adresów IP (dla bezpieczeñstwa staram siê nadawaæ unikatowe nazwy hostów w skali wszystkich klastrów, mieszkaj¹cych w tym samym buckecie GCS), na przyk³ad:
+
+10.0.0.4 vmEurope01Cassandra01_New
+10.0.0.5 vmEurope01Cassandra02_New
+10.0.0.6 vmEurope01Cassandra03_New
+
+Mapowania trzeba dodaæ w plikach hosts wszystkich serwerów w klastrze.
