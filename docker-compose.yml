@@ -4,23 +4,17 @@ services:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
-      args:
-        GraphiteNodeName: cassandra1
-        GraphiteNodeColor: green
     container_name: cassandra1
     ports:
       - "9042:9042"
       - "8881:22"
       - "7071:7070"
       - "9101:9100"
-    depends_on:
-      - graphite
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
-#    volumes:
-#      - "cassandra1volume:/bitnami"
+    volumes:
+      - "cassandra1volume:/bitnami"
     environment:
-      - CASSANDRA_HOST=172.171.170.2
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -40,23 +34,17 @@ services:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
-      args:
-        GraphiteNodeName: cassandra2
-        GraphiteNodeColor: blue
     container_name: cassandra2
     ports:
       - "9043:9042"
       - "8882:22"
       - "7072:7070"
       - "9102:9100"
-    depends_on:
-      - graphite
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
-#    volumes:
-#      - "cassandra2volume:/bitnami"
+    volumes:
+      - "cassandra2volume:/bitnami"
     environment:
-      - CASSANDRA_HOST=172.171.170.3
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -75,23 +63,17 @@ services:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
-      args:
-        GraphiteNodeName: cassandra3
-        GraphiteNodeColor: purple
     container_name: cassandra3
     ports:
       - "9044:9042"
       - "8883:22"
       - "7073:7070"
       - "9103:9100"
-    depends_on:
-      - graphite
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
-#    volumes:
-#      - "cassandra3volume:/bitnami"
+    volumes:
+      - "cassandra3volume:/bitnami"
     environment:
-      - CASSANDRA_HOST=172.171.170.4
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -107,20 +89,18 @@ services:
       - grafana
 
   prometheus:
-#    image: "prom/prometheus"
     container_name: prometheus
     build: 
       context: ./prometheus
       dockerfile: Dockerfile
     ports:
       - "9090:9090"
-#    volumes:
-#      - "prometheus:/prometheus"
+    volumes:
+      - "prometheus:/prometheus"
     networks:
       static-network:
         ipv4_address: 172.171.170.5
   grafana:
-#    image: "grafana/grafana"
     container_name: grafana
     build: 
       context: ./grafana
@@ -129,18 +109,18 @@ services:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: 123
-#    volumes:
-#      - "grafana:/var/lib/grafana"
+    volumes:
+      - "grafana:/var/lib/grafana"
     networks:
       static-network:
         ipv4_address: 172.171.170.6
 
-#volumes:
-#  cassandra1volume:
-#  cassandra2volume:
-#  cassandra3volume:
-#  grafana:
-#  prometheus:  
+volumes:
+  cassandra1volume:
+  cassandra2volume:
+  cassandra3volume:
+  grafana:
+  prometheus:  
 
 networks:
   static-network:
