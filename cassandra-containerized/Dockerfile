@@ -14,6 +14,15 @@ COPY --from=aptgetter /root/downloadfolder/ /var/cache/apt/archives/
 RUN cd /var/cache/apt/archives/ && ls
 RUN dpkg -i /var/cache/apt/archives/*.deb 
 RUN apt-get update && apt-get install -y apt-utils alpine-pico curl sudo iputils-ping
+
+## Remove unnecessary topology file (as per https://docs.datastax.com/en/dse/5.1/dse-admin/datastax_enterprise/operations/opsAddDCToCluster.html, this file should apparently not be present on new clusters that are using GossippingPropertyFileSnitch from the start)
+RUN rm /etc/cassandra/cassandra-topology.properties
+## Limit Cassandra's max heap size for development purposes
+ARG Cassandra_MaxHeapSizeInMB
+
+RUN sed -i 's/#MAX_HEAP_SIZE="4G"/MAX_HEAP_SIZE="'"${Cassandra_MaxHeapSizeInMB}"'M"/' /etc/cassandra/cassandra-env.sh
+RUN sed -i 's/#HEAP_NEWSIZE="800M"/HEAP_NEWSIZE="200M"/' /etc/cassandra/cassandra-env.sh
+RUN cat /etc/cassandra/cassandra-env.sh
 ########## </Prepare apache cassandra image for further building> ##########
 
 ########## <Install medusa> ##########

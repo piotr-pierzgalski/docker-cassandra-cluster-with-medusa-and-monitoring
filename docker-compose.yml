@@ -1,9 +1,11 @@
-version: "3.7"
+version: "2.4"
 services:
   cassandra1:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
+      args:
+        - Cassandra_MaxHeapSizeInMB=1024
     container_name: cassandra1
     ports:
       - "9042:9042"
@@ -13,12 +15,14 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
     volumes:
-      - "cassandra1volume:/bitnami"
+      - "cassandra1volume:/var/lib/cassandra"
     environment:
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
       - CASSANDRA_ENABLE_RPC=false
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack1
     networks:
       static-network:
         ipv4_address: 172.171.170.2
@@ -29,11 +33,17 @@ services:
     depends_on:
       - prometheus
       - grafana
+    mem_limit: 2048m
+    #mem_reservation: 2048m
+    oom_kill_disable: true
+    #cpus: 2
 
   cassandra2:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
+      args:
+        - Cassandra_MaxHeapSizeInMB=1024
     container_name: cassandra2
     ports:
       - "9043:9042"
@@ -43,12 +53,14 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
     volumes:
-      - "cassandra2volume:/bitnami"
+      - "cassandra2volume:/var/lib/cassandra"
     environment:
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
       - CASSANDRA_ENABLE_RPC=false
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack2
     networks:
       static-network:
         ipv4_address: 172.171.170.3
@@ -58,11 +70,17 @@ services:
       - "cassandra3:172.171.170.4"
     depends_on:
       - grafana
+    mem_limit: 2048m
+    #mem_reservation: 2048m
+    oom_kill_disable: true
+    #cpus: 2
 
   cassandra3:
     build: 
       context: ./cassandra-containerized
       dockerfile: Dockerfile
+      args:
+        - Cassandra_MaxHeapSizeInMB=1024
     container_name: cassandra3
     ports:
       - "9044:9042"
@@ -72,12 +90,14 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
     volumes:
-      - "cassandra3volume:/bitnami"
+      - "cassandra3volume:/var/lib/cassandra"
     environment:
       - CASSANDRA_CLUSTER_NAME=WoehCassandraClusterLocal
       - CASSANDRA_SEEDS=cassandra1,cassandra2
       - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
       - CASSANDRA_ENABLE_RPC=false
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack3
     networks:
       static-network:
         ipv4_address: 172.171.170.4
@@ -87,6 +107,10 @@ services:
       - "cassandra3:172.171.170.4"
     depends_on:
       - grafana
+    mem_limit: 2048m
+    #mem_reservation: 2048m
+    oom_kill_disable: true
+    #cpus: 2
 
   prometheus:
     container_name: prometheus

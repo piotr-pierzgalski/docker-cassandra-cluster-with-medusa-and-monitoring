@@ -35,3 +35,18 @@ Jeœli zatem jest to konieczne, to do pliku "/etc/hosts" wpisujemy mapowania adre
 10.0.0.6 vmEurope01Cassandra03_New
 
 Mapowania trzeba dodaæ w plikach hosts wszystkich serwerów w klastrze.
+
+3. Wykonujemy backup (TODO: dopisaæ wiêcej)
+
+4. Wykonujemy restore (TODO: dopisaæ wiêcej)
+
+5. Po wykonaniu restore podnieœmy replikacjê systemowych keyspace'ów do wspieraj¹cej wiele serwerów:
+ALTER KEYSPACE system_auth WITH replication = { 'class': 'NetworkTopologyStrategy', 'dc1': '3' };
+ALTER KEYSPACE system_distributed WITH replication = { 'class': 'NetworkTopologyStrategy', 'dc1': '3' };
+ALTER KEYSPACE system_traces WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': '3' };
+
+nodetool repair -full system_auth
+nodetool repair -full system_distributed
+nodetool repair -full system_traces
+
+Powy¿sze bêdzie trzeba wykonaæ ponownie przy dodawaniu nowego datacenter!
