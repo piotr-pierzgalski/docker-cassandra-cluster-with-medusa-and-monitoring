@@ -1,0 +1,78 @@
+version: "2.4"
+services:
+  cassandra1:
+    restart: on-failure
+    build: 
+      context: ./cassandra-containerized
+      dockerfile: Dockerfile
+      args:
+        - Cassandra_MaxHeapSizeInMB=2048
+    container_name: cassandra1
+    ports:
+      - "9042:9042"
+      - "8881:22"
+      - "7071:7070"
+      - "9101:9100"
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
+    volumes:
+      - "cassandra1volume:/var/lib/cassandra"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=CassandraClusterLocal
+      - CASSANDRA_SEEDS=cassandra1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_ENABLE_RPC=false
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack1
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.2
+    extra_hosts:
+      - "cassandra1:172.171.170.2"
+    depends_on:
+      - prometheus
+      - grafana
+    #mem_limit: 1024m
+    #cpus: 1.0
+    oom_kill_disable: true
+
+  prometheus:
+    container_name: prometheus
+    build: 
+      context: ./prometheus
+      dockerfile: Dockerfile
+      args:
+        - CassandraNodesToMonitor=cassandra1
+    ports:
+      - "9090:9090"
+    volumes:
+      - "prometheus:/prometheus"
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.20
+  grafana:
+    container_name: grafana
+    build: 
+      context: ./grafana
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: 123
+    volumes:
+      - "grafana:/var/lib/grafana"
+    networks:
+      static-network:
+        ipv4_address: 172.171.170.21
+
+volumes:
+  cassandra1volume:
+  grafana:
+  prometheus:  
+
+networks:
+  static-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.171.170.0/24"
