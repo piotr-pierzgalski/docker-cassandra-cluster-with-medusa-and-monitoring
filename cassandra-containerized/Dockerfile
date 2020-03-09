@@ -2,17 +2,20 @@
 FROM debian:stretch AS aptgetter
 RUN apt-get update
 WORKDIR /root/downloadfolder/
-RUN apt-get download libidn2-0 && apt-cache depends -i libidn2-0 | awk '/Depends:/ {print $2}' | xargs  apt-get download
-RUN apt-get download libcurl3-gnutls && apt-cache depends -i libcurl3-gnutls | awk '/Depends:/ {print $2}' | xargs  apt-get download
-RUN apt-get download apt-transport-https && apt-cache depends -i apt-transport-https | awk '/Depends:/ {print $2}' | xargs  apt-get download
+RUN apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
+  --no-conflicts --no-breaks --no-replaces --no-enhances \
+  --no-pre-depends "apt-transport-https" | grep "^\w")
 ########## </Download missing apt-get packages in a separate build> ##########
 
 ########## <Prepare apache cassandra image for further building> ##########
-FROM cassandra:latest
+FROM cassandra:3.11.5
+USER root
+
 ## Inject the missing packages into the apache cassandra image
 COPY --from=aptgetter /root/downloadfolder/ /var/cache/apt/archives/
 RUN cd /var/cache/apt/archives/ && ls
 RUN dpkg -i /var/cache/apt/archives/*.deb 
+#RUN apt-get update && apt-get install -y apt-transport-https
 RUN apt-get update && apt-get install -y apt-utils alpine-pico curl sudo iputils-ping
 
 ## Remove unnecessary topology file (as per https://docs.datastax.com/en/dse/5.1/dse-admin/datastax_enterprise/operations/opsAddDCToCluster.html, this file should apparently not be present on new clusters that are using GossippingPropertyFileSnitch from the start)
@@ -23,6 +26,16 @@ ARG Cassandra_MaxHeapSizeInMB
 RUN sed -i 's/#MAX_HEAP_SIZE="4G"/MAX_HEAP_SIZE="'"${Cassandra_MaxHeapSizeInMB}"'M"/' /etc/cassandra/cassandra-env.sh
 RUN sed -i 's/#HEAP_NEWSIZE="800M"/HEAP_NEWSIZE="200M"/' /etc/cassandra/cassandra-env.sh
 RUN cat /etc/cassandra/cassandra-env.sh
+
+## Specify the default directories in Cassandra's yaml explicitly for medusa-related purposes
+#RUN sed -i 's,# hints_directory: /var/lib/cassandra/hints,hints_directory: /var/lib/cassandra/hints,' /etc/cassandra/cassandra.yaml
+#RUN sed -i 's,# commitlog_directory: /var/lib/cassandra/commitlog,commitlog_directory: /var/lib/cassandra/commitlog,' /etc/cassandra/cassandra.yaml
+#RUN sed -i 's,# saved_caches_directory: /var/lib/cassandra/saved_caches,saved_caches_directory: /var/lib/cassandra/saved_caches,' /etc/cassandra/cassandra.yaml
+#RUN sed -i 's,# data_file_directories,data_file_directories,' /etc/cassandra/cassandra.yaml
+#RUN sed -i 's,#     - /var/lib/cassandra/data,    - /var/lib/cassandra/data,' /etc/cassandra/cassandra.yaml
+
+
+COPY scripts/cqlshrc /etc/cassandra
 ########## </Prepare apache cassandra image for further building> ##########
 
 ########## <Install medusa> ##########
@@ -32,12 +45,14 @@ RUN apt-get update
 ## Install Python3
 RUN apt-get install -y python3-pip libffi-dev libssl-dev python3-dev
 ## Install Google cloud storage SDK
+RUN apt-get update && apt-get install -y gnupg2
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
 RUN apt-get update && apt-get install -y google-cloud-sdk
 
 ## Install medusa script ##
 RUN pip3 install cassandra-medusa[GCS]
+#RUN pip3 install https://github.com/thelastpickle/cassandra-medusa/archive/master.zip
 
 ## Prepare medusa configuration folder ##
 RUN mkdir -p /etc/medusa
@@ -69,6 +84,7 @@ RUN echo 'root:123' | chpasswd
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 RUN sed -i 's/#PermitEmptyPasswords no/PermitEmptyPasswords yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PermitUserEnvironment no/PermitUserEnvironment yes/' /etc/ssh/sshd_config
 ENV NOTVISIBLE "in users profile"
 RUN echo "export VISIBLE=now" >> /etc/profile
 EXPOSE 22
@@ -95,6 +111,17 @@ RUN cat /etc/dragonrat >> /etc/motd
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 RUN env | grep _ >> /etc/environment
+
+
+#COPY scripts/sstableloader /bin
+#COPY scripts/sstableloader.bat /bin
+#RUN echo "PATH=$PATH:/opt/cassandra/bin" >> /etc/environment
+#RUN sed -i 's,/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games,/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/cassandra/bin,' /etc/environment
+#RUN env | grep _ >> /root/.ssh/environment
+#RUN echo "PATH=$PATH:/opt/cassandra/bin" >> /root/.ssh/environment
+#RUN echo "export PATH=$PATH:/opt/cassandra/bin" >> /etc/bash.bashrc
+#RUN echo "export PATH=$PATH:/opt/cassandra/bin" >> /root/.bashrc
+#ENV PATH /opt/cassandra/bin:$PATH
 
 COPY scripts/startvariousstuff.sh .
 CMD ["sh", "startvariousstuff.sh"]

@@ -1,12 +1,10 @@
 [
   {
     "targets": [ 
-      "172.171.170.2:9100", 
-      "172.171.170.3:9100", 
-      "172.171.170.4:9100"
+      <target_placeholder>
     ],
     "labels": {
-      "cluster": "WoehCassandraClusterLocal"
+      "cluster": "CassandraClusterLocal"
     }
   }
 ]

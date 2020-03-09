@@ -7,4 +7,3 @@ COPY dashboards/c-cluster-metrics.json /var/lib/grafana/dashboards
 COPY dashboards/c-cluster-overview.json /var/lib/grafana/dashboards
 COPY dashboards/c-table-metrics.json /var/lib/grafana/dashboards
 COPY dashboards/system-metrics.json /var/lib/grafana/dashboards
-#COPY dashboards /var/lib/grafana/dashboards
