@@ -35,7 +35,7 @@ RUN cat /etc/cassandra/cassandra-env.sh
 #RUN sed -i 's,#     - /var/lib/cassandra/data,    - /var/lib/cassandra/data,' /etc/cassandra/cassandra.yaml
 
 
-COPY scripts/cqlshrc /etc/cassandra
+#COPY scripts/cqlshrc /etc/cassandra
 ########## </Prepare apache cassandra image for further building> ##########
 
 ########## <Install medusa> ##########
@@ -70,9 +70,9 @@ ENV PATH=$PATH:/usr/local/go/bin
 RUN go get github.com/prometheus/node_exporter
 RUN cd ${GOPATH-$HOME/go}/src/github.com/prometheus/node_exporter && make && ./node_exporter -h
 
-COPY prometheus/jmx_prometheus_javaagent-0.3.0.jar .
+COPY prometheus/jmx_prometheus_javaagent-0.12.0.jar .
 COPY prometheus/cassandra.yml .
-RUN echo 'JVM_OPTS="$JVM_OPTS -javaagent:'//jmx_prometheus_javaagent-0.3.0.jar=7070://cassandra.yml'"' >> /etc/cassandra/cassandra-env.sh
+RUN echo 'JVM_OPTS="$JVM_OPTS -javaagent:'//jmx_prometheus_javaagent-0.12.0.jar=7070://cassandra.yml'"' >> /etc/cassandra/cassandra-env.sh
 ########## </Install and configure jmx prometheus reporting for grafana> ##########
 
 
@@ -111,17 +111,6 @@ RUN cat /etc/dragonrat >> /etc/motd
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 RUN env | grep _ >> /etc/environment
-
-
-#COPY scripts/sstableloader /bin
-#COPY scripts/sstableloader.bat /bin
-#RUN echo "PATH=$PATH:/opt/cassandra/bin" >> /etc/environment
-#RUN sed -i 's,/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games,/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/cassandra/bin,' /etc/environment
-#RUN env | grep _ >> /root/.ssh/environment
-#RUN echo "PATH=$PATH:/opt/cassandra/bin" >> /root/.ssh/environment
-#RUN echo "export PATH=$PATH:/opt/cassandra/bin" >> /etc/bash.bashrc
-#RUN echo "export PATH=$PATH:/opt/cassandra/bin" >> /root/.bashrc
-#ENV PATH /opt/cassandra/bin:$PATH
 
 COPY scripts/startvariousstuff.sh .
 CMD ["sh", "startvariousstuff.sh"]

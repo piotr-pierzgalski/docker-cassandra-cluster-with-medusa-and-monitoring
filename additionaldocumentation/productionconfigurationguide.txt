@@ -36,11 +36,107 @@ Jeœli zatem jest to konieczne, to do pliku "/etc/hosts" wpisujemy mapowania adre
 
 Mapowania trzeba dodaæ w plikach hosts wszystkich serwerów w klastrze.
 
-3. Wykonujemy backup (TODO: dopisaæ wiêcej)
+2.4: Opowiem tu trochê o dobrych praktykach konfiguracyjnych. Konfiguruj¹c serwery produkcyjne pamiêtajmy o w³aœciwych ustawienia datacenter i racków. Aby zapewniæ docelow¹ rozszerzalnoœæ na nowe regiony powinniœmy korzystaæ z GossipingPropertyFileSnitch oraz (w definicji keyspace'a) z NetworkTopologyStrategy, z replikacj¹ wynosz¹c¹ 3 dla ka¿dego datacenter. Oprócz tego, w ka¿dym datacenter, dla zapewnienia lepszej dostêpnoœci warto podzieliæ node'y na racki. W ka¿dym racku powinno byæ tyle samo serwerów. Cassandra replikuj¹c dane stara siê umieszczaæ je równomiernie w dostêpnych rackach - zatem jeœli przy replikacji 3 w danym datacenter rozdzielimy node'y na 3 racki - to sumarycznie w ka¿dym z tych racków cassandra bêdzie staraæ siê osi¹gn¹æ 100% danych. Dla lepszego zobrazowania, wyobraŸmy sobie nierównomierny podzia³ node'ów (nie jest to dobra konfiguracja, ale lepiej obrazuje koncepcjê replikacji).
 
-4. Wykonujemy restore (TODO: dopisaæ wiêcej)
+rack1	rack2	rack3
+X	X	X
+X	X	X
+X		X
+X		X
+		X
 
-5. Po wykonaniu restore podnieœmy replikacjê systemowych keyspace'ów do wspieraj¹cej wiele serwerów:
+Przy takim podziale dane w klastrze powinny siê nastêpuj¹co:
+rack1	rack2	rack3
+25%	50%	20%
+25%	50%	20%
+25%		20%
+25%		20%
+		20%
+--------------------
+100%	100%	100%
+
+Dostêpnoœæ serwerów powinna zatem byæ skonfigurowana "kolumnowo" - gdy¿ ka¿da kolumna zawiera sumarycznie pe³n¹ replikê danych. Innymi s³owy, wy³¹czenie nawet kilku serwerów z tej samej kolumny nie jest du¿ym problemem (pozosta³e dwie kolumny pozostaj¹c w³¹czonymi nadal zapewniaj¹ nam dwie pe³ne repliki, co oznacza LOCAL_QUORUM) - jednak ju¿ wy³¹czenie nawet dwóch serwerów z dwóch ró¿nych kolumn jednoczeœnie obni¿a nam maksymalne obs³ugiwane consistency do LOCAL_ONE. Nawiasem mówi¹c, jest bardzo istotne by klient korzystaj¹cy z cassandry (czyli w tym przypadku - serwer C#) oczekiwa³ wy³¹cznie consistency z przedrostkami LOCAL_* (LOCAL_ONE, LOCAL_QUORUM, LOCAL_SERIAL), a nie ich "standardowych" odpowiedników - inaczej bêdziemy mieli do czynienia ze znacznymi wzrostami obci¹¿enia przy postawieniu nowego datacenter w odleg³ej lokalizacji. Warto te¿ pamiêtaæ, ¿e z naszych testów wynika, ¿e w wyniku stosowania przez nas lightweight transactions (czyli batchowych operacji) wiele elementów aplikacji wymaga od nas poziomu spójnoœci wynosz¹cego minimum LOCAL_SERIAL.
+
+3. Wykonujemy backup. W tym celu na ka¿dym ze starych serwerów bazodanowych wywo³ujemy komendê:
+medusa backup --backup-name=nazwabackupu
+"nazwa backupu" to jakakolwiek wymyœlona przez nas nazwa dla backupu klastra. UWAGA: trzeba podaæ identyczn¹ nazwê na ka¿dym z serwerów klastra! Backup na pojedynczym z naszych dotychczasowych dwoch serwerów zajmuje 7-15 minut, zale¿nie od tego, czy by³y na nich robione wczeœniej backupy (w takiej sytuacji jest szybciej bo czêœæ plików kopiuje siê z wczeœniejszego backupu), czy te¿ jest to pierwszy backup. "Wiszenie" procesu na kroku "Starting backup" jest zupe³nie normalne.
+
+Po zakoñczeniu backupu na wszystkich serwerach mo¿emy zweryfikowaæ czy poprawnie siê wykona³ za pomoc¹ komendy:
+medusa verify --backup-name=nazwabackupu
+Jeœli któryœ z serwerów nie zakoñczy³ backupu, powy¿sza komenda nam o tym powie. Jeœli komenda zwraca "OK!"/"OK!!" - to znaczy, ¿e ca³y cluster poprawnie siê zbackupowa³.
+
+Po stworzeniu backupu musimy niestety rêcznie naprawiæ w nim pewne problemy z naszymi danymi. Czêœæ skasowanych kiedyœ kolumn wydaje siê trzymaæ wci¹¿ pod spodem dane i przez to tworzy póŸniej problemy przy ³adowaniu ich do nowego klastra. Objawia siê to b³êdem "unknown column <nazwakolumny> during deserialization" (gdzie znaleŸæ ten i inne wpisy w logach meduzy - opiszê w kolejnym punkcie). Problem rozwi¹zujemy modyfikuj¹c rêcznie pliki "schema.cql" w backupach w buckecie GCS. Œcie¿ka do pliku to "Buckets/<nazwa bucketa>/<nazwa serwera>/<nazwa backupu>/meta/schema.cql". W przypadku naszego starego klastra na wszelki wypadek wprowadza³em zawsze modyfikacje w plikach schema obu backupów. Modyfikacje polegaj¹ na dopisaniu usuniêtych kiedyœ kolumn do odtwarzanej struktury keyspace'a. UWAGA: trzeba dopisywaæ to osobno do kazdej tabeli, nie wystarczy np. dodaæ instrukcji ALTER TABLE na koñcu pliku - ten plik cql jest jakoœ rêcznie interpretowany przez meduzê i inne operacje, ni¿ CREATE TABLE / CREATE KEYSPACE - s¹ po prostu ignorowane podczas restore. Poni¿ej wrzucam konieczne modyfikacje tabel (na dzieñ 09.03.2020, to siê oczywiœcie mo¿e rozszerzyæ o nowe tabele w przysz³oœci):
+---------------
+europe.magicitems ->
+attack int,
+dmgmin int,
+defence int,
+dmgmax int
+---------------
+europe.questtemplates ->
+canbedrawnasdaily boolean
+---------------
+europe.playeravatarsv2 ->
+races map<int, boolean>
+---------------
+europe.creatures ->
+hitchancebonus int,
+attackbonus int,
+defencebonus int,
+accuracy int
+---------------
+europe.towercreatures ->
+defencemultiplier float,
+lasthourreward int,
+attackmultiplier float,
+---------------
+europe.playercaughtcreatures ->
+latitude double,
+longitude double,
+---------------
+europe.activelocations ->
+activespots int,
+totalspots int
+---------------
+
+Po modyfikacji trzeba usun¹æ pliki schema.cql ze storage (albo po prostu zmieniæ im nazwê - ja tak robi³em) - i zuploadowaæ zmodyfikowane pliki do odpowiednich katalogów.
+
+<EKSPERYMENTALNE> Ze wzglêdu na to, ¿e mieliœmy Ÿle stworzony keyspace - wprowadzam w nim równie¿ od razu modyfikacje:
+CREATE KEYSPACE europe WITH replication = {'class' : 'NetworkTopologyStrategy', 'dc1' : 3 } AND durable_writes = true;
+Nie jestem jednak pewien, czy lepszym rozwi¹zaniem nie by³by restore w starej postaci - i póŸniejsza zmiana przez ALTER KEYSPACE + póŸniejsze uruchomienie na wszystkich node'ach nodetool repair (+ inne administracyjne, potencjalnie konieczne w takiej sytuacji operacji).
+
+4. Wykonujemy restore. Restore uruchamiamy tylko na jednym serwerze - medusa sama zaloguje siê po ssh na pozosta³e i wykona odpowiednie operacje na poszczególnych node'ach. Pamiêtajmy, ¿e restore mo¿emy wykonaæ tylko z tego serwera, który posiada klucz ssh pozwalaj¹cy na dostêp do pozosta³ych serwerów w klastrze. Do restore klastra s³u¿y komenda:
+medusa restore-cluster --backup-name=nazwabackupu --seed-target=adresjednegozseedow
+Restore to d³uga operacja (trwa co najmniej 40-50 minut na 3 serwerach). Jej postêpy mo¿emy œledziæ w folderze /temp/medusa-job-identyfikatorjobanadanyprzezmeduse. W pliku stderr l¹duj¹ logi z poszczególnych operacji, czasy ich wykonania oraz ewentualne b³êdy, które uniemo¿liwi³y restore. Plik mo¿emy otworzyæ np. przez winscp w dowolnym momencie (równie¿ w trakcie trwania restore) i œledziæ postêpy operacji. Warto zauwa¿yæ, ¿e folder z logami joba powstanie tylko na serwerach, która medusa (chyba) losowo wybra³a do przeprowadzenia operacji - nie musi byæ to wcale serwer, na którym uruchomiliœmy komendê restore! Informacja o tym, które node'y zosta³y wybrane do restore pojawi siê w konsoli, w postaci fraz "About to restore on nazwaserwera using (...)" oraz póŸniej, po odtworzeniu keyspace'a: "Restoring data on nazwaserwera...". Zauwa¿y³em te¿, ¿e medusa przeprowadza restore równolegle na takiej iloœci serwerów, ile by³o Ÿród³owych node'ów w backupie.
+Przyk³adowo, mamy klaster 6 node'ów cassandry na którym chcemy wykonaæ restore ze starego klastra zawieraj¹cego 2 node'y. Skonfigurowaliœmy mo¿liwoœæ logowania do pozosta³ych node'ów na serwerze cassandra1. Uruchomiliœmy restore na serwerze cassandra1. Medusa wybra³a do operacji restore serwery cassandra4 oraz cassandra5. Zatem to na serwerach cassandra4 oraz cassandra5 znajdziemy w katalogach /temp katalogi z plikami raportuj¹cymi stan operacji restore.
+
+5. Po zakoñczeniu operacji restore mo¿emy pozbyæ siê dodanych wczeœniej sztucznie kolumn:
+
+ALTER TABLE europe.towercreatures DROP defencemultiplier;
+ALTER TABLE europe.towercreatures DROP lasthourreward;
+ALTER TABLE europe.towercreatures DROP attackmultiplier;
+	
+ALTER TABLE europe.creatures DROP hitchancebonus;
+ALTER TABLE europe.creatures DROP attackbonus;
+ALTER TABLE europe.creatures DROP defencebonus;
+ALTER TABLE europe.creatures DROP accuracy;
+
+ALTER TABLE europe.playeravatarsv2 DROP races;
+	
+ALTER TABLE europe.magicitems DROP attack;
+ALTER TABLE europe.magicitems DROP dmgmin;
+ALTER TABLE europe.magicitems DROP defence;
+ALTER TABLE europe.magicitems DROP dmgmax;
+
+ALTER TABLE europe.questtemplates DROP canbedrawnasdaily;
+
+ALTER TABLE europe.playercaughtcreatures DROP latitude;
+ALTER TABLE europe.playercaughtcreatures DROP longitude;
+
+ALTER TABLE europe.activelocations DROP activespots;
+ALTER TABLE europe.activelocations DROP totalspots;
+
+6. Po wykonaniu restore podnieœmy replikacjê systemowych keyspace'ów do wspieraj¹cej wiele serwerów:
 ALTER KEYSPACE system_auth WITH replication = { 'class': 'NetworkTopologyStrategy', 'dc1': '3' };
 ALTER KEYSPACE system_distributed WITH replication = { 'class': 'NetworkTopologyStrategy', 'dc1': '3' };
 ALTER KEYSPACE system_traces WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': '3' };
@@ -49,4 +145,4 @@ nodetool repair -full system_auth
 nodetool repair -full system_distributed
 nodetool repair -full system_traces
 
-Powy¿sze bêdzie trzeba wykonaæ ponownie przy dodawaniu nowego datacenter!
+Powy¿sze bêdzie trzeba wykonaæ ponownie z adekwatnie zmienionymi parametrami przy dodawaniu nowego datacenter!
