@@ -1,7 +1,7 @@
 global:
   scrape_interval: 300s
   scrape_timeout: 60s
-  evaluation_interval: 60s
+  evaluation_interval: 300s
 
 alerting:
   alertmanagers:
