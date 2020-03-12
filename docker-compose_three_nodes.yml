@@ -1,4 +1,6 @@
 version: "2.4"
+# Docker environment hardware requirements: 5+ GB drive space, 5+ GB RAM, 4+ virtual cores
+
 services:
   cluster3n_dc1rack1node1:
     restart: on-failure
@@ -6,7 +8,7 @@ services:
       context: ./cassandra-containerized
       dockerfile: Dockerfile
       args:
-        - Cassandra_MaxHeapSizeInMB=400
+        - Cassandra_MaxHeapSizeInMB=600
     container_name: cluster3n_dc1rack1node1
     ports:
       - "9042:9042"
@@ -34,7 +36,7 @@ services:
     depends_on:
       - prometheus
       - grafana
-    mem_limit: 768m
+    mem_limit: 1024m
     oom_kill_disable: true
 
   cluster3n_dc1rack2node1:
@@ -43,7 +45,7 @@ services:
       context: ./cassandra-containerized
       dockerfile: Dockerfile
       args:
-        - Cassandra_MaxHeapSizeInMB=400
+        - Cassandra_MaxHeapSizeInMB=600
     container_name: cluster3n_dc1rack2node1
     ports:
       - "9043:9042"
@@ -68,7 +70,7 @@ services:
       - "cluster3n_dc1rack3node1:172.171.170.4"
     depends_on:
       - grafana
-    mem_limit: 768m
+    mem_limit: 1024m
     oom_kill_disable: true
 
   cluster3n_dc1rack3node1:
@@ -77,7 +79,7 @@ services:
       context: ./cassandra-containerized
       dockerfile: Dockerfile
       args:
-        - Cassandra_MaxHeapSizeInMB=400
+        - Cassandra_MaxHeapSizeInMB=600
     container_name: cluster3n_dc1rack3node1
     ports:
       - "9044:9042"
@@ -102,7 +104,7 @@ services:
       - "cluster3n_dc1rack3node1:172.171.170.4"
     depends_on:
       - grafana
-    mem_limit: 768m
+    mem_limit: 1024m
     oom_kill_disable: true
 
   prometheus:

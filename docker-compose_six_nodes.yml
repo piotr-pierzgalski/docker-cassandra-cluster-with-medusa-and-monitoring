@@ -1,4 +1,6 @@
 version: "2.4"
+# Docker environment hardware requirements: 10+ GB drive space, 8+ GB RAM, 5+ virtual cores
+
 services:
   cluster6n_dc1rack1node1:
     restart: on-failure
@@ -38,7 +40,6 @@ services:
       - prometheus
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   cluster6n_dc1rack2node1:
@@ -76,7 +77,6 @@ services:
     depends_on:
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   cluster6n_dc1rack3node1:
@@ -114,7 +114,6 @@ services:
     depends_on:
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   cluster6n_dc1rack1node2:
@@ -153,7 +152,6 @@ services:
       - prometheus
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   cluster6n_dc1rack2node2:
@@ -191,7 +189,6 @@ services:
     depends_on:
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   cluster6n_dc1rack3node2:
@@ -229,7 +226,6 @@ services:
     depends_on:
       - grafana
     mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   prometheus:

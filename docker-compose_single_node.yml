@@ -1,4 +1,6 @@
 version: "2.4"
+# Docker environment hardware requirements: 5+ GB drive space, 3+ GB RAM, 2+ virtual cores
+
 services:
   cassandra_singlenodecluster_dc1rack1:
     restart: on-failure
@@ -32,8 +34,6 @@ services:
     depends_on:
       - prometheus
       - grafana
-    #mem_limit: 1024m
-    #cpus: 1.0
     oom_kill_disable: true
 
   prometheus:
