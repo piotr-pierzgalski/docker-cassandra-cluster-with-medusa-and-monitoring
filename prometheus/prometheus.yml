@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 300s
+  scrape_timeout: 60s
+  evaluation_interval: 300s
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets: []
+    scheme: http
+    timeout: 10s
+
+scrape_configs:
+  - job_name: prometheus
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+    - targets:
+      - localhost:9090
+
+  - job_name: "cassandra"
+    scrape_interval: 300s
+    scrape_timeout:  60s
+    file_sd_configs:
+      - files:
+        - 'tg_cassandra.json'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.*)(:[0-9]*)$
+        target_label: instance
+        replacement: ${1}
+
+  - job_name: "node"
+    scrape_interval: 60s
+    scrape_timeout:  10s
+    file_sd_configs:
+      - files:
+        - 'tg_node.json'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.*)(:[0-9]*)$
+        target_label: instance
+        replacement: ${1}

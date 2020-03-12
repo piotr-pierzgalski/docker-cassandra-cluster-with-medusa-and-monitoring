@@ -1,0 +1,10 @@
+[
+  {
+    "targets": [ 
+      <target_placeholder>
+    ],
+    "labels": {
+      "cluster": "CassandraClusterLocal"
+    }
+  }
+]
