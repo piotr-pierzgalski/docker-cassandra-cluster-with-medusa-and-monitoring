@@ -1,7 +1,7 @@
 global:
-  scrape_interval: 300s
+  scrape_interval: 60s
   scrape_timeout: 60s
-  evaluation_interval: 300s
+  evaluation_interval: 60s
 
 alerting:
   alertmanagers:
@@ -21,7 +21,7 @@ scrape_configs:
       - localhost:9090
 
   - job_name: "cassandra"
-    scrape_interval: 300s
+    scrape_interval: 60s
     scrape_timeout:  60s
     file_sd_configs:
       - files:
