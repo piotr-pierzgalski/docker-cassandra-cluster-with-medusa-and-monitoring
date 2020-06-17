@@ -67,8 +67,9 @@ RUN wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.13.linux-amd64.tar.gz
 ENV PATH=$PATH:/usr/local/go/bin
 
-RUN go get github.com/prometheus/node_exporter
-RUN cd ${GOPATH-$HOME/go}/src/github.com/prometheus/node_exporter && make && ./node_exporter -h
+#Skipping node exporter
+#RUN go get github.com/prometheus/node_exporter
+#RUN cd ${GOPATH-$HOME/go}/src/github.com/prometheus/node_exporter && make && ./node_exporter -h
 
 COPY prometheus/jmx_prometheus_javaagent-0.12.0.jar .
 COPY prometheus/cassandra.yml .
